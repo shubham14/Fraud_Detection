@@ -9,8 +9,12 @@ import pandas as pd
 from sklearn import preprocessing, metrics
 import xgboost as xgb
 from time import time
+import pickle
+from imblearn.combine import SMOTEENN
+from sklearn.model_selection import train_test_split
 
-def train(X_train, y_train, X_test):
+
+def train_model(X_train, y_train, X_test):
     # Label Encoding
     for f in X_train.columns:
         if X_train[f].dtype=='object' or X_test[f].dtype=='object': 
@@ -19,26 +23,43 @@ def train(X_train, y_train, X_test):
             X_train[f] = lbl.transform(list(X_train[f].values))
             X_test[f] = lbl.transform(list(X_test[f].values)) 
     
+    # SMOTE with edited nearest neighbour 
+    smote_enn = SMOTEENN(random_state=0)
+    X_train, y_train = smote_enn.fit_resample(X_train, y_train)
+    
+    X_train, X_val, y_train, y_val = train_test_split(
+            X_train, y_train, test_size=0.2)
+    
+    X_train = X_train.as_matrix()
+    y_train = y_train.as_matrix()
+    
     
     print("Start training classfier")
     start = time()
     clf = xgb.XGBClassifier(n_estimators=500,
                             n_jobs=4,
-                            max_depth=9,
+                            max_depth=9, 
                             learning_rate=0.05,
                             subsample=0.9,
                             colsample_bytree=0.9,
-                            missing=-999,
-                            tree_method='gpu_exact',
-                            verbosity=True)
+                            missing=-999)
     
     clf.fit(X_train, y_train)
     print("Ended classifier training")
     end = time()
     print("Total training time is {} seconds".format(end-start))
-    return X_test, clf
+    
+    # save trained model
+    filename = 'finalized_model.sav'
+    pickle.dump(clf, open(filename, 'wb'))
+    
+    return X_test.as_matrix(), X_val.as_matrix(), y_val.as_matrix(), clf
 
-def infer(clf, X_test):
+def calc_val_acc(clf, X_val, y_val):
+    pred = clf.predict(X_val)
+    return sum(pred == y_val)/len(pred)
+
+def infer_model(clf, X_test):
     sample_submission = pd.read_csv('sample_submission.csv', 
                                     index_col='TransactionID')
     sample_submission['isFraud'] = clf.predict_proba(X_test)[:,1]
@@ -56,5 +77,5 @@ if __name__ == "__main__":
     X_train = X_train.fillna(-999)
     X_test = X_test.fillna(-999)
     
-    X_test_mod, clf = train(X_train, y_train, X_test)
-    infer(clf,X_test_mod)
+    X_test_mod, clf, X_val, y_val = train_model(X_train, y_train, X_test)
+    infer_model(clf, X_test_mod)

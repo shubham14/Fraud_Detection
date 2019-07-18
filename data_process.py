@@ -5,6 +5,10 @@ Created on Mon Jul 15 20:20:23 2019
 @author: Shubham
 """
 
+'''
+0 count = 132915, 1 count = 11318, clearly overbalanced
+'''
+
 import pandas as pd
 import numpy as np
 from glob import glob
