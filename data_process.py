@@ -13,12 +13,8 @@ import pandas as pd
 import numpy as np
 from glob import glob
 import logging
-import os
 import torch
-from skimage import io, transform
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -38,7 +34,31 @@ def combine_identity_transaction(mode='train'):
                                left_index=True, right_index=True)
     combine_csv.to_csv(merged_file_name, header=True)
     
+
+class TransactionDataset(Dataset):
+    """
+    Fraud Detection datase
+    Converting
+    """
+    def __init__(self, csv_file):
+        """
+        Args:
+            csv_file (string): Path to the csv file with annotations.
+        """
+        self.transactions = pd.read_csv(csv_file)
+
+    def __len__(self):
+        return len(self.transactions)
+
+    def __getitem__(self, idx):
+        record = self.transactions.iloc[idx, 0]
+        isFraud = self.transactions.iloc[idx, 1:]
+        sample = {'record': record, 'isFraud': isFraud}
+        return sample
+    
 if __name__ == "__main__":
     modes = ['train', 'test']
     for mode in modes:
         combine_identity_transaction(mode=mode)
+        
+    fraud_dataset = TransactionDataset('train_merged.csv')
