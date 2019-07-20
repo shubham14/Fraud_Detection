@@ -6,14 +6,22 @@ Created on Mon Jul 15 20:20:23 2019
 """
 
 '''
-0 count = 132915, 1 count = 11318, clearly overbalanced
+0 count = 132915, 1 count = 11318, clearly unbalanced
 '''
 
 import pandas as pd
 import numpy as np
 from glob import glob
 import logging
+import os
+import torch
+from skimage import io, transform
+import matplotlib.pyplot as plt
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, utils
+import warnings
 
+warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
 
 def combine_identity_transaction(mode='train'):
@@ -26,7 +34,7 @@ def combine_identity_transaction(mode='train'):
     csv_files = glob(mode + "_*.csv")
     csv_read_list = list(map(lambda x: pd.read_csv(x, index_col='TransactionID'),
                                     csv_files))
-    combine_csv = csv_read_list[0].merge(csv_read_list[1], how='left', 
+    combine_csv = csv_read_list[1].merge(csv_read_list[0], how='left', 
                                left_index=True, right_index=True)
     combine_csv.to_csv(merged_file_name, header=True)
     

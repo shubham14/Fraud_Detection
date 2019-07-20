@@ -13,7 +13,6 @@ import pickle
 from imblearn.combine import SMOTEENN
 from sklearn.model_selection import train_test_split
 
-
 def train_model(X_train, y_train, X_test):
     # Label Encoding
     for f in X_train.columns:
@@ -30,9 +29,7 @@ def train_model(X_train, y_train, X_test):
     X_train, X_val, y_train, y_val = train_test_split(
             X_train, y_train, test_size=0.2)
     
-    X_train = X_train.as_matrix()
-    y_train = y_train.as_matrix()
-    
+    print(type(X_train))
     
     print("Start training classfier")
     start = time()
@@ -53,7 +50,7 @@ def train_model(X_train, y_train, X_test):
     filename = 'finalized_model.sav'
     pickle.dump(clf, open(filename, 'wb'))
     
-    return X_test.as_matrix(), X_val.as_matrix(), y_val.as_matrix(), clf
+    return X_test.as_matrix(), X_val, y_val, clf
 
 def calc_val_acc(clf, X_val, y_val):
     pred = clf.predict(X_val)
@@ -71,11 +68,11 @@ if __name__ == "__main__":
     
     y_train = train['isFraud'].copy()
 
-    # Drop target, fill in NaNs
+    # Drop target, fill in NaNs 
     X_train = train.drop('isFraud', axis=1)
     X_test = test.copy()
     X_train = X_train.fillna(-999)
     X_test = X_test.fillna(-999)
     
-    X_test_mod, clf, X_val, y_val = train_model(X_train, y_train, X_test)
+    X_test_mod, X_val, y_val, clf = train_model(X_train, y_train, X_test)
     infer_model(clf, X_test_mod)
