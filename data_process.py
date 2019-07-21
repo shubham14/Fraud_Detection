@@ -16,6 +16,7 @@ import logging
 import torch
 from torch.utils.data import Dataset, DataLoader
 import warnings
+from sklearn.impute import SimpleImputer
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,9 @@ def combine_identity_transaction(mode='train'):
                                left_index=True, right_index=True)
     combine_csv.to_csv(merged_file_name, header=True)
     
+def processDataFrame(df):
+    pass
+    
 
 class TransactionDataset(Dataset):
     """
@@ -51,7 +55,11 @@ class TransactionDataset(Dataset):
         return len(self.transactions)
 
     def __getitem__(self, idx):
-        record = self.transactions.iloc[idx, 0]
+        y_train = self.transactions['isFraud'].copy()
+        # Drop target, fill in NaNs 
+        X_train = self.transactions.drop('isFraud', axis=1)
+        X_train = X_train.fillna(-999)
+        record = X_train.iloc[idx, 0]
         isFraud = self.transactions.iloc[idx, 1:]
         sample = {'record': record, 'isFraud': isFraud}
         return sample
