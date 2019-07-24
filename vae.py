@@ -12,8 +12,10 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torchvision import datasets, transforms
 from config import cfg
+from torch.utils.data import Dataset, DataLoader
 from data_process import *
 
+# Defining Pytorch models
 class Encoder(nn.Module):
     def __init__(self, latent_dims):
         super(Encoder, self).__init__()
@@ -115,16 +117,18 @@ if __name__ == "__main__":
     dec = Decoder(cfg.latent_dims)
     vae = VAE(enc, dec)
     
-    
     modes = ['train', 'test']
-    l = []
+    pandas_df = []
     for mode in modes:
         x = combine_identity_transaction(mode=mode)
-        l.append(x)
-    X_train, y_train, X_test = processDataFrame(l[0], l[1])
+        pandas_df.append(x)
+    X_train, y_train, X_test = processDataFrame(pandas_df[0], 
+                                                pandas_df[1])
+    
     # dataset instantiating
-    train_loader = TransactionDataset(X_train, y_train)
+    train_loader = DataLoader(TransactionDataset(X_train, y_train),
+                              batch_size=20, shuffle=True)
 
-    for epoch in range(cfg.EPOCHS):
-        train(epoch, train_loader, vae)
-        test(train_loader, vae)
+#    for epoch in range(cfg.EPOCHS):
+#        train(epoch, train_loader, vae)
+#        test(train_loader, vae)

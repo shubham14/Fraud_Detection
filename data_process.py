@@ -54,8 +54,7 @@ def processDataFrame(train, test):
 
 class TransactionDataset(Dataset):
     """
-    Fraud Detection datase
-    Converting
+    Fraud Detection Pytorch dataset
     """
     def __init__(self, X_train, y_train):
         """
