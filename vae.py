@@ -12,7 +12,7 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torchvision import datasets, transforms
 from config import cfg
-from data_process import TransactionDataset
+from data_process import *
 
 class Encoder(nn.Module):
     def __init__(self, latent_dims):
@@ -28,8 +28,8 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, latent_dims):
         super(Decoder, self).__init__()
-        self.fc3 = nn.Linear(latent_dims[1], late)
-        self.fc4 = nn.Linear(400, 432)
+        self.fc3 = nn.Linear(latent_dims[1], latent_dims[0])
+        self.fc4 = nn.Linear(latent_dims[1], 432)
 
     def decode(self, z):
         h3 = F.relu(self.fc3(z))
@@ -52,7 +52,13 @@ class VAE(nn.Module):
         z = self.reparameterize(mu, logvar)
         return self.dec(z), mu, logvar
     
-def train(epochs, train_loader, model):
+# Based on Kingma's paper
+def loss_function(recon_x, x, mu, logvar):
+    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return BCE + KLD
+
+def train(model, epochs, train_loader, optimizer):
     # toggle model to train mode
     model.train()
     train_loss = 0
@@ -60,7 +66,7 @@ def train(epochs, train_loader, model):
     # each `data` is of BATCH_SIZE samples and has shape [128, 1, 28, 28]
     for batch_idx, (data, _) in enumerate(train_loader):
         data = Variable(data)
-        if CUDA:
+        if cfg.CUDA:
             data = data.cuda()
         optimizer.zero_grad()
 
@@ -73,7 +79,7 @@ def train(epochs, train_loader, model):
         loss.backward()
         train_loss += loss.data[0]
         optimizer.step()
-        if batch_idx % LOG_INTERVAL == 0:
+        if batch_idx % cfg.LOG_INTERVAL == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader),
@@ -83,7 +89,7 @@ def train(epochs, train_loader, model):
           epoch, train_loss / len(train_loader.dataset)))
 
 
-def test(test_loader):
+def test(test_loader, model):
     # toggle model to test / inference mode
     model.eval()
     test_loss = 0
@@ -98,15 +104,6 @@ def test(test_loader):
         data = Variable(data, volatile=True)
         recon_batch, mu, logvar = model(data)
         test_loss += loss_function(recon_batch, data, mu, logvar).data[0]
-        if i == 0:
-          n = min(data.size(0), 8)
-          # for the first 128 batch of the epoch, show the first 8 input digits
-          # with right below them the reconstructed output digits
-          comparison = torch.cat([data[:n],
-                                  recon_batch.view(BATCH_SIZE, 1, 28, 28)[:n]])
-          save_image(comparison.data.cpu(),
-                     'results/reconstruction_' + str(epoch) + '.png', nrow=n)
-
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
 
@@ -118,9 +115,16 @@ if __name__ == "__main__":
     dec = Decoder(cfg.latent_dims)
     vae = VAE(enc, dec)
     
+    
+    modes = ['train', 'test']
+    l = []
+    for mode in modes:
+        x = combine_identity_transaction(mode=mode)
+        l.append(x)
+    X_train, y_train, X_test = processDataFrame(l[0], l[1])
     # dataset instantiating
-    train_loader = TransactionDataset('train_merged.csv')
+    train_loader = TransactionDataset(X_train, y_train)
 
     for epoch in range(cfg.EPOCHS):
         train(epoch, train_loader, vae)
-        test(epoch)
+        test(train_loader, vae)

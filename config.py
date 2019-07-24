@@ -9,5 +9,5 @@ class cfg:
     EPOCHS = 10
     latent_dims = [20, 400]
     CUDA = False
-    
+    LOG_INTERVAL = 10
     
