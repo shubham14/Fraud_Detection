@@ -11,12 +11,15 @@ Created on Mon Jul 15 20:20:23 2019
 
 import pandas as pd
 import numpy as np
+from scipy.fftpack import fft, ifft
 from glob import glob
 import logging
+import matplotlib.pyplot as plt
 from sklearn import preprocessing, metrics
 from torch.utils.data import Dataset, DataLoader
 import warnings
 from sklearn.impute import SimpleImputer
+from skimage import data, color
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +39,24 @@ def combine_identity_transaction(mode='train'):
     combine_csv.to_csv(merged_file_name, header=True)
     return pd.read_csv(merged_file_name)
     
+
+def fft_viz(vec, name): 
+    '''
+    1-D fft and save the image for it to be used
+    in Pytorch dataloadercc
+    Input: pandas dataframe row
+    Output: Grayscale numpy array
+    '''
+    fft_vec = fft(vec)
+    fig = plt.figure()
+    plt.plot(fft_vec)
+    fig.savefig(name + ".png")
+    np_array = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+    data = color.rgb2gray(np_array.reshape(fig.canvas.get_width_height()[::-1] 
+                        + (3,)))
+    return data
+    
+
 def processDataFrame(train, test):
     y_train = train['isFraud'].copy()
     # Drop target, fill in NaNs 
@@ -43,6 +64,8 @@ def processDataFrame(train, test):
     X_test = test.copy()
     X_train = X_train.fillna(-999)
     X_test = X_test.fillna(-999)
+    
+    # label encoder
     for f in X_train.columns:
         if X_train[f].dtype=='object' or X_test[f].dtype=='object': 
             lbl = preprocessing.LabelEncoder()
@@ -68,9 +91,10 @@ class TransactionDataset(Dataset):
         return len(self.X_train)
 
     def __getitem__(self, idx):
-        record = self.X_train.values[idx, :]
+        name = "img_" + str(idx) +".png" 
+        image = fft_viz(self.X_train.values[idx, :], name)
         isFraud = self.y_train[idx]
-        sample = {'record': record, 'isFraud': isFraud}
+        sample = {'image': image, 'isFraud': isFraud}
         return sample
     
 if __name__ == "__main__":
