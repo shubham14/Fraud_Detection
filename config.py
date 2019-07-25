@@ -10,4 +10,6 @@ class cfg:
     latent_dims = [20, 400]
     CUDA = False
     LOG_INTERVAL = 10
-    
+    img_channels = 3
+    h_dim=1024
+    z_dim=32

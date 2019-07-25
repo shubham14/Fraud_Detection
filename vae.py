@@ -16,43 +16,83 @@ from torch.utils.data import Dataset, DataLoader
 from data_process import *
 
 # Defining Pytorch models
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
+class UnFlatten(nn.Module):
+    def forward(self, input, size=1024):
+        return input.view(input.size(0), size, 1, 1)
+    
 class Encoder(nn.Module):
-    def __init__(self, latent_dims):
+    def __init__(self):
         super(Encoder, self).__init__()
-        self.fc1 = nn.Linear(432, latent_dims[0]) # feature size is 432
-        self.fc21 = nn.Linear(latent_dims[0], latent_dims[1])
-        self.fc22 = nn.Linear(latent_dims[0], latent_dims[1])
+        self.layers = nn.Sequential(
+            nn.Conv2d(cfg.image_channels, 32, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=4, stride=2),
+            nn.ReLU(),
+            Flatten()
+        )
+        self.fc = nn.Sequential(
+                self.fc1 = nn.Linear(cfg.h_dim, cfg.z_dim)
+                self.fc2 = nn.Linear(cfg.h_dim, cfg.z_dim)
+                self.fc3 = nn.Linear(cfg.z_dim, cfg.h_dim))
         
     def forward(self, x):
-        h1 = F.relu(self.fc1(x))
-        return self.fc21(h1), self.fc22(h1)
+        out = self.layers(x)
+        out = self.fc(out)
+        return out
     
 class Decoder(nn.Module):
-    def __init__(self, latent_dims):
+    def __init__(self):
         super(Decoder, self).__init__()
-        self.fc3 = nn.Linear(latent_dims[1], latent_dims[0])
-        self.fc4 = nn.Linear(latent_dims[1], 432)
-
-    def decode(self, z):
-        h3 = F.relu(self.fc3(z))
-        return torch.sigmoid(self.fc4(h3))
-
-
+        self.layers = nn.Sequential(
+            UnFlatten(),
+            nn.ConvTranspose2d(cfg.h_dim, 128, kernel_size=5, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, cfg.image_channels, kernel_size=6, stride=2),
+            nn.Sigmoid(),
+        )
+    
+    def forward(self, x):
+        out = self.layers(x)
+        return out
+        
 class VAE(nn.Module):
-    def __init__(self, enc, dec):
+    def __init__(self, encoder, decoder):
         super(VAE, self).__init__()
-        self.enc = enc
-        self.dec = dec
+        self.encoder = encoder        
+        self.decoder = decoder
         
     def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        return mu + eps*std
+        std = logvar.mul(0.5).exp_()
+        # return torch.normal(mu, std)
+        esp = torch.randn(*mu.size())
+        z = mu + std * esp
+        return z
+    
+    def bottleneck(self, h):
+        mu, logvar = self.fc1(h), self.fc2(h)
+        z = self.reparameterize(mu, logvar)
+        return z, mu, logvar
+        
+    def representation(self, x):
+        return self.bottleneck(self.encoder(x))[0]
 
     def forward(self, x):
-        mu, logvar = self.enc(x.view(-1, 784))
-        z = self.reparameterize(mu, logvar)
-        return self.dec(z), mu, logvar
+        h = self.encoder(x)
+        z, mu, logvar = self.bottleneck(h)
+        z = self.fc3(z)
+        return self.decoder(z), mu, logvar
     
 # Based on Kingma's paper
 def loss_function(recon_x, x, mu, logvar):
