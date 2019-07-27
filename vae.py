@@ -38,15 +38,17 @@ class Encoder(nn.Module):
             nn.ReLU(),
             Flatten()
         )
+        
         self.fc = nn.Sequential(
-                self.fc1 = nn.Linear(cfg.h_dim, cfg.z_dim)
-                self.fc2 = nn.Linear(cfg.h_dim, cfg.z_dim)
-                self.fc3 = nn.Linear(cfg.z_dim, cfg.h_dim))
+                nn.Linear(cfg.h_dim * 100, cfg.h_dim),
+                nn.Linear(cfg.h_dim, cfg.z_dim),
+                nn.Linear(cfg.z_dim, cfg.h_dim))
         
     def forward(self, x):
         out = self.layers(x)
-        out = self.fc(out)
-        return out
+        out1 = self.fc(out)
+        out2 = self.fc(out)
+        return out1, out2
     
 class Decoder(nn.Module):
     def __init__(self):
@@ -81,7 +83,7 @@ class VAE(nn.Module):
         return z
     
     def bottleneck(self, h):
-        mu, logvar = self.fc1(h), self.fc2(h)
+        mu, logvar = self.encoder(h)
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
         
@@ -102,18 +104,19 @@ def loss_function(recon_x, x, mu, logvar):
 
 def train(model, epochs, train_loader, optimizer):
     # toggle model to train mode
+    model = model.double()
     model.train()
     train_loss = 0
     # in the case of MNIST, len(train_loader.dataset) is 60000
     # each `data` is of BATCH_SIZE samples and has shape [128, 1, 28, 28]
-    for batch_idx, (data, _) in enumerate(train_loader):
-        data = Variable(data)
+    for batch_idx, data in enumerate(train_loader):
+#        data = Variable(data)
         if cfg.CUDA:
             data = data.cuda()
         optimizer.zero_grad()
 
         # push whole batch of data through VAE.forward() to get recon_loss
-        recon_batch, mu, logvar = model(data)
+        recon_batch, mu, logvar = model(data['image'].double())
         # calculate scalar loss
         loss = loss_function(recon_batch, data, mu, logvar)
         # calculate the gradient of the loss w.r.t. the graph leaves
@@ -127,6 +130,8 @@ def train(model, epochs, train_loader, optimizer):
                 100. * batch_idx / len(train_loader),
                 loss.data[0] / len(data)))
 
+    print("Saving model information")
+    torch.save(model.state_dict(), "fft_model.pth")
     print('====> Epoch: {} Average loss: {:.4f}'.format(
           epoch, train_loss / len(train_loader.dataset)))
 
@@ -137,25 +142,28 @@ def test(test_loader, model):
     test_loss = 0
 
     # each data is of BATCH_SIZE (default 128) samples
-    for i, (data, _) in enumerate(test_loader):
+    for i, data in enumerate(test_loader):
         if cfg.CUDA:
             # make sure this lives on the GPU
             data = data.cuda()
 
         # we're only going to infer, so no autograd at all required: volatile=True
-        data = Variable(data, volatile=True)
+#        data = Variable(data, volatile=True)
         recon_batch, mu, logvar = model(data)
         test_loss += loss_function(recon_batch, data, mu, logvar).data[0]
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
+    return test_loss
 
 
 if __name__ == "__main__":
     
     # instantiating the model
-    enc = Encoder(cfg.latent_dims)
-    dec = Decoder(cfg.latent_dims)
+    enc = Encoder()
+    dec = Decoder()
     vae = VAE(enc, dec)
+    
+    optimizer = optim.SGD(vae.parameters(), lr=0.1, momentum=0.9)
     
     modes = ['train', 'test']
     pandas_df = []
@@ -169,6 +177,5 @@ if __name__ == "__main__":
     train_loader = DataLoader(TransactionDataset(X_train, y_train),
                               batch_size=20, shuffle=True)
 
-#    for epoch in range(cfg.EPOCHS):
-#        train(epoch, train_loader, vae)
-#        test(train_loader, vae)
+    for epoch in range(cfg.EPOCHS):
+        train(vae, epoch, train_loader, optimizer)

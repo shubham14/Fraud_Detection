@@ -93,6 +93,7 @@ class TransactionDataset(Dataset):
     def __getitem__(self, idx):
         name = "img_" + str(idx) +".png" 
         image = fft_viz(self.X_train.values[idx, :], name)
+        image = np.expand_dims(image, 0)
         isFraud = self.y_train[idx]
         sample = {'image': image, 'isFraud': isFraud}
         return sample

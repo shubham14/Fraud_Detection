@@ -13,3 +13,4 @@ class cfg:
     img_channels = 3
     h_dim=1024
     z_dim=32
+    image_channels = 1 # since it is a grayscale image
