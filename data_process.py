@@ -48,7 +48,7 @@ def fft_viz(vec, name):
     Output: Grayscale numpy array
     '''
     fft_vec = fft(vec)
-    fig = plt.figure()
+    fig = plt.figure(figsize=(1, 1))
     plt.plot(fft_vec)
     fig.savefig(name + ".png")
     np_array = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
@@ -93,7 +93,7 @@ class TransactionDataset(Dataset):
     def __getitem__(self, idx):
         name = "img_" + str(idx) +".png" 
         image = fft_viz(self.X_train.values[idx, :], name)
-        image = np.expand_dims(image, 0)
+        image = np.expand_dims(image, 0).astype(float)
         isFraud = self.y_train[idx]
         sample = {'image': image, 'isFraud': isFraud}
         return sample

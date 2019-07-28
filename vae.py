@@ -20,14 +20,15 @@ class Flatten(nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)
 
+
 class UnFlatten(nn.Module):
     def forward(self, input, size=1024):
         return input.view(input.size(0), size, 1, 1)
-    
-class Encoder(nn.Module):
+
+class VAE(nn.Module):
     def __init__(self):
-        super(Encoder, self).__init__()
-        self.layers = nn.Sequential(
+        super(VAE, self).__init__()
+        self.encoder = nn.Sequential(
             nn.Conv2d(cfg.image_channels, 32, kernel_size=4, stride=2),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
@@ -36,24 +37,15 @@ class Encoder(nn.Module):
             nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=4, stride=2),
             nn.ReLU(),
-            Flatten()
+            Flatten(),
+            nn.Linear(100 * cfg.h_dim, cfg.h_dim)
         )
         
-        self.fc = nn.Sequential(
-                nn.Linear(cfg.h_dim * 100, cfg.h_dim),
-                nn.Linear(cfg.h_dim, cfg.z_dim),
-                nn.Linear(cfg.z_dim, cfg.h_dim))
+        self.fc1 = nn.Linear(cfg.h_dim, cfg.z_dim)
+        self.fc2 = nn.Linear(cfg.h_dim, cfg.z_dim)
+        self.fc3 = nn.Linear(cfg.z_dim, cfg.h_dim)
         
-    def forward(self, x):
-        out = self.layers(x)
-        out1 = self.fc(out)
-        out2 = self.fc(out)
-        return out1, out2
-    
-class Decoder(nn.Module):
-    def __init__(self):
-        super(Decoder, self).__init__()
-        self.layers = nn.Sequential(
+        self.decoder = nn.Sequential(
             UnFlatten(),
             nn.ConvTranspose2d(cfg.h_dim, 128, kernel_size=5, stride=2),
             nn.ReLU(),
@@ -64,26 +56,16 @@ class Decoder(nn.Module):
             nn.ConvTranspose2d(32, cfg.image_channels, kernel_size=6, stride=2),
             nn.Sigmoid(),
         )
-    
-    def forward(self, x):
-        out = self.layers(x)
-        return out
-        
-class VAE(nn.Module):
-    def __init__(self, encoder, decoder):
-        super(VAE, self).__init__()
-        self.encoder = encoder        
-        self.decoder = decoder
         
     def reparameterize(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
         # return torch.normal(mu, std)
         esp = torch.randn(*mu.size())
         z = mu + std * esp
-        return z
+        return z.double()
     
     def bottleneck(self, h):
-        mu, logvar = self.encoder(h)
+        mu, logvar = self.fc1(h), self.fc2(h)
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
         
@@ -104,7 +86,7 @@ def loss_function(recon_x, x, mu, logvar):
 
 def train(model, epochs, train_loader, optimizer):
     # toggle model to train mode
-    model = model.double()
+    model = model.float()
     model.train()
     train_loss = 0
     # in the case of MNIST, len(train_loader.dataset) is 60000
@@ -116,7 +98,7 @@ def train(model, epochs, train_loader, optimizer):
         optimizer.zero_grad()
 
         # push whole batch of data through VAE.forward() to get recon_loss
-        recon_batch, mu, logvar = model(data['image'].double())
+        recon_batch, mu, logvar = model(data['image'])  
         # calculate scalar loss
         loss = loss_function(recon_batch, data, mu, logvar)
         # calculate the gradient of the loss w.r.t. the graph leaves
@@ -131,7 +113,7 @@ def train(model, epochs, train_loader, optimizer):
                 loss.data[0] / len(data)))
 
     print("Saving model information")
-    torch.save(model.state_dict(), "fft_model.pth")
+    torch.save(model.state_dict(), "vae_model.pth")
     print('====> Epoch: {} Average loss: {:.4f}'.format(
           epoch, train_loss / len(train_loader.dataset)))
 
@@ -159,9 +141,7 @@ def test(test_loader, model):
 if __name__ == "__main__":
     
     # instantiating the model
-    enc = Encoder()
-    dec = Decoder()
-    vae = VAE(enc, dec)
+    vae = VAE()
     
     optimizer = optim.SGD(vae.parameters(), lr=0.1, momentum=0.9)
     
@@ -175,7 +155,7 @@ if __name__ == "__main__":
     
     # dataset instantiating
     train_loader = DataLoader(TransactionDataset(X_train, y_train),
-                              batch_size=20, shuffle=True)
+                              batch_size=cfg.batch_size, shuffle=True)
 
     for epoch in range(cfg.EPOCHS):
         train(vae, epoch, train_loader, optimizer)
