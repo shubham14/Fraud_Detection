@@ -86,7 +86,7 @@ def test(testloader, net, device):
 if __name__ == "__main__":
     
     # dataset instantiating
-    train_loader = DataLoader(TransactionDataset(X_train, y_train),
+    train_loader = DataLoader(TransactionDataset(X_train, y_train, mode='S'),
                               batch_size=cfg.batch_size, shuffle=True)
     
     # instantiating the model

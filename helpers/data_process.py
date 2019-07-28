@@ -14,10 +14,15 @@ import numpy as np
 from scipy.fftpack import fft, ifft
 from glob import glob
 import logging
+import os
+import matplotlib
+matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 from sklearn import preprocessing, metrics
 from torch.utils.data import Dataset, DataLoader
 import warnings
+from os.path import join as pjoin
+from imblearn.combine import SMOTEENN
 from sklearn.impute import SimpleImputer
 from skimage import data, color
 
@@ -27,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 def combine_identity_transaction(mode='train'):
     print("Combining {} files".format(mode))
     merged_file_name = mode + '_merged.csv'
+    merged_file_name = os.path.join('..', 'data', merged_file_name)
     print("File name is {}".format(merged_file_name))
     if len(glob(merged_file_name)) >= 1:
         print("Merged file already exists")
@@ -50,7 +56,7 @@ def fft_viz(vec, name):
     fft_vec = fft(vec)
     fig = plt.figure(figsize=(1, 1))
     plt.plot(fft_vec)
-    fig.savefig(name + ".png")
+#    fig.savefig(name + ".png")
     np_array = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     data = color.rgb2gray(np_array.reshape(fig.canvas.get_width_height()[::-1] 
                         + (3,)))
@@ -79,13 +85,19 @@ class TransactionDataset(Dataset):
     """
     Fraud Detection Pytorch dataset
     """
-    def __init__(self, X_train, y_train):
+    def __init__(self, X_train, y_train, mode='N'):
         """
         Args:
-            csv_file (string): Path to the csv file with annotations.
+        X_train, y_train: initial dataset
+        mode: To apply SMOTE-ENN or not, 'N' is for normal, 'S' for smote
         """
         self.X_train = X_train
         self.y_train = y_train
+        self.mode = mode
+        if mode == 'S':
+            smote_enn = SMOTEENN(random_state=0)
+        else:
+            X_train, y_train = X_train, y_train
 
     def __len__(self):
         return len(self.X_train)

@@ -11,6 +11,8 @@ import torch.utils.data
 from torch import nn, optim
 from torch.nn import functional as F
 from torchvision import datasets, transforms
+import sys
+sys.path.append('C:\\Users\\Shubham\\Desktop\\Fraud_Detection\\helpers')
 from config import cfg
 from torch.utils.data import Dataset, DataLoader
 from data_process import *
@@ -38,7 +40,6 @@ class VAE(nn.Module):
             nn.Conv2d(128, 256, kernel_size=4, stride=2),
             nn.ReLU(),
             Flatten(),
-            nn.Linear(100 * cfg.h_dim, cfg.h_dim)
         )
         
         self.fc1 = nn.Linear(cfg.h_dim, cfg.z_dim)
@@ -62,7 +63,7 @@ class VAE(nn.Module):
         # return torch.normal(mu, std)
         esp = torch.randn(*mu.size())
         z = mu + std * esp
-        return z.double()
+        return z
     
     def bottleneck(self, h):
         mu, logvar = self.fc1(h), self.fc2(h)
@@ -80,13 +81,13 @@ class VAE(nn.Module):
     
 # Based on Kingma's paper
 def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784).float(), reduction='sum')
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return BCE + KLD
 
 def train(model, epochs, train_loader, optimizer):
     # toggle model to train mode
-    model = model.float()
+    model = model.double()
     model.train()
     train_loss = 0
     # in the case of MNIST, len(train_loader.dataset) is 60000
