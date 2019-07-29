@@ -45,15 +45,15 @@ def train(trainloader, net, criterion, optimizer, device, scheduler):
         start = time.time()
         running_loss = 0.0
         for i, data in enumerate(trainloader):
-            images = data['image']
-            images = images.to(device)
+            images = data['image'].to(device)
+            labels = data['isFraud'].to(device)
             # TODO: zero the parameter gradients
             # TODO: forward pass
             # TODO: backward pass
             # TODO: optimize the network
             optimizer.zero_grad()
             out = net(images)
-            loss = criterion(out, data['isFraud'].double())
+            loss = criterion(out, labels.double())
             loss.backward()
             optimizer.step()
             # print statistics
@@ -74,7 +74,7 @@ def test(testloader, net, device):
     total = 0
     with torch.no_grad():
         for data in testloader:
-            images, labels = data
+            images, labels = data['image'], data['isFraud']
             images = images.to(device)
             labels = labels.to(device)
             outputs = net(images)
@@ -97,6 +97,7 @@ if __name__ == "__main__":
     X_train, y_train, X_test = processDataFrame(pandas_df[0], 
                                                 pandas_df[1])
     
+    print('here')
     # dataset instantiating
     train_loader = DataLoader(TransactionDataset(X_train, y_train, mode='S'),
                               batch_size=cfg.batch_size, shuffle=True)
