@@ -16,7 +16,7 @@ from glob import glob
 import logging
 import os
 import matplotlib
-matplotlib.use('TKAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn import preprocessing, metrics
 from torch.utils.data import Dataset, DataLoader
@@ -55,6 +55,7 @@ def fft_viz(vec, name):
     '''
     fft_vec = fft(vec)
     fig = plt.figure(figsize=(1, 1))
+    fig.canvas.draw()
     plt.plot(fft_vec)
 #    fig.savefig(name + ".png")
     np_array = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')

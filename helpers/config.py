@@ -16,4 +16,4 @@ class cfg:
     h_dim=1024
     z_dim=32
     image_channels = 1 # since it is a grayscale image
-    device= 'cpu' # options are 'cuda' and 'cpu'
+    device= 'cuda' # options are 'cuda' and 'cpu'

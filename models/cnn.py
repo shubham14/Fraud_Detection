@@ -13,7 +13,8 @@ from torch.nn import functional as F
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import Dataset, DataLoader
-
+import sys
+sys.path.append('C:\\Users\\Shubham\\Desktop\\Fraud_Detection\\helpers')
 from config import cfg
 from data_process import *
 import time
@@ -27,7 +28,7 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         self.cnn1 = nn.Conv2d(cfg.image_channels, 32, 3)
         self.cnn2 = nn.Conv2d(32, 64, 3)
-        self.linear1 = nn.Linear(295936, 1)
+        self.linear1 = nn.Linear(589824, 1)
     
     def forward(self, inp):
         out = self.cnn1(inp)
@@ -85,12 +86,23 @@ def test(testloader, net, device):
 
 if __name__ == "__main__":
     
+    if torch.cuda.is_available() and cfg.device == 'cuda':
+        print("Running on GPU!!, Yay")
+        
+    modes = ['train', 'test']
+    pandas_df = []
+    for mode in modes:
+        x = combine_identity_transaction(mode=mode)
+        pandas_df.append(x)
+    X_train, y_train, X_test = processDataFrame(pandas_df[0], 
+                                                pandas_df[1])
+    
     # dataset instantiating
     train_loader = DataLoader(TransactionDataset(X_train, y_train, mode='S'),
                               batch_size=cfg.batch_size, shuffle=True)
     
     # instantiating the model
-    cnn = CNN()
+    cnn = CNN().to(cfg.device)
     criterion = nn.BCELoss()
     optimizer = optim.SGD(cnn.parameters(), lr=0.1, momentum=0.9)
     scheduler = MultiStepLR(optimizer, milestones=[25, 50, 75], gamma=0.08)

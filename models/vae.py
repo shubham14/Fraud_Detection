@@ -142,7 +142,7 @@ def test(test_loader, model):
 if __name__ == "__main__":
     
     # instantiating the model
-    vae = VAE()
+    vae = VAE().to(cfg.device)
     
     optimizer = optim.SGD(vae.parameters(), lr=0.1, momentum=0.9)
     
